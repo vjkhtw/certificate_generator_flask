@@ -4,10 +4,10 @@ from wtforms import FileField, SubmitField
 from wtforms.validators import InputRequired
 from werkzeug.utils import secure_filename
 from PIL import Image, ImageFont, ImageDraw
+from flask_mail import Mail, Message
 import os
 import cv2 as cv
 import openpyxl
-
 
 upload_folder = "static/media/"
 csv_folder = "static/csv/details.xlsx"
@@ -16,6 +16,15 @@ IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif']
 app = Flask(__name__)
 app.config['SECRET_KEY'] = "secret_key"
 app.config['IMAGE_TYPES'] = IMAGE_TYPES
+
+app.config['MAIL_SERVER'] = 'smtp.zoho.com'
+app.config['MAIL_PORT'] = 465
+app.config['MAIL_USERNAME'] = 'emailaddress'
+app.config['MAIL_PASSWORD'] = 'password'
+app.config['MAIL_USE_TLS'] = False
+app.config['MAIL_USE_SSL'] = True
+
+mail = Mail(app)
 
 if not os.path.exists(upload_folder):
     os.mkdir(upload_folder)
@@ -61,12 +70,18 @@ def process(name, x, y):
     sheet = obj.active
     for i, row in enumerate(sheet.iter_rows(values_only=True), start=1):
         certi_name = row[0]
+        email_addr = row[1]
         img = Image.open(template_path)
         draw = ImageDraw.Draw(img)
         font = ImageFont.truetype("arial.ttf", font_size)
         draw.text((x, y), certi_name, font=font, fill=font_color)
         certi_path = os.path.join(output_path, f"certi{i}.png")
         img.save(certi_path)
+        msg = Message('Hello', sender = 'emailaddress', recipients = [email_addr])
+        msg.body = f"Hello {certi_name}, this is a flask message sent from Flask-Mail"
+        with app.open_resource(certi_path) as fp:
+            msg.attach(certi_path, "image/png", fp.read())
+        mail.send(msg)
     return "Success!"
 
 if __name__ == "__main__":
